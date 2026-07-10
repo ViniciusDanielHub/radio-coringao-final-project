@@ -100,6 +100,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(articles);
     }
 
+    // Menu
+    if (url === '/api/menu' || url.startsWith('/api/menu?')) {
+      const items = await db.menuItem.findMany({ where: { isActive: true }, orderBy: { order: 'asc' } });
+      return res.status(200).json(items);
+    }
+
     // Categorias
     if (url === '/api/categorias' || url.startsWith('/api/categorias?')) {
       const categories = await db.category.findMany({ where: { isActive: true }, orderBy: { order: 'asc' } });

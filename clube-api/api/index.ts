@@ -69,6 +69,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(data);
     }
 
+    // /api/classificacoes/category/:slug
+    const catClassifMatch = url.match(/^\/api\/classificacoes\/category\/([^?]+)$/);
+    if (catClassifMatch) {
+      const catSlug = catClassifMatch[1];
+      const cat = await db.category.findFirst({ where: { slug: catSlug } });
+      if (!cat) return res.status(200).json([]);
+      const competitions = await db.competition.findMany({ where: { categoryId: cat.id } });
+      const compIds = competitions.map((c: any) => c.id);
+      const data = await db.standingEntry.findMany({ where: { competitionId: { in: compIds } }, orderBy: { position: 'asc' } });
+      return res.status(200).json(data);
+    }
+
     if (url === '/api/elenco' || url.startsWith('/api/elenco?')) {
       const data = await db.squadMember.findMany({ orderBy: { name: 'asc' } });
       return res.status(200).json(data);
@@ -81,6 +93,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (url === '/api/transfer-clubs' || url.startsWith('/api/transfer-clubs?')) {
       const data = await db.transferClub.findMany({ orderBy: { name: 'asc' } });
+      return res.status(200).json(data);
+    }
+
+    // /api/movimentacoes/recent
+    if (url.startsWith('/api/movimentacoes/recent')) {
+      const urlObj = new URL(url, 'http://localhost');
+      const limit = parseInt(urlObj.searchParams.get('limit') || '10');
+      const category = urlObj.searchParams.get('category');
+      const where: any = {};
+      if (category) {
+        where.OR = [
+          { category: { slug: category } },
+          { squadMember: { category: { slug: category } } },
+        ];
+      }
+      const data = await db.playerMovement.findMany({
+        where,
+        include: { squadMember: { select: { id: true, name: true, photoUrl: true, shirtNumber: true, category: { select: { id: true, name: true, slug: true, gender: true } } } }, club: { select: { id: true, name: true, logoUrl: true } }, opponent: { select: { id: true, name: true, logoUrl: true } } },
+        orderBy: { date: 'desc' },
+        take: limit,
+      });
+      return res.status(200).json(data);
+    }
+
+    // /api/movimentacoes (admin)
+    if (url.startsWith('/api/movimentacoes') && !url.includes('/recent')) {
+      const data = await db.playerMovement.findMany({ orderBy: { date: 'desc' }, take: 50 });
       return res.status(200).json(data);
     }
 
