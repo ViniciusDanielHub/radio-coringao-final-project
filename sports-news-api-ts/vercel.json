@@ -9,12 +9,20 @@
     {
       "src": "api/test.ts",
       "use": "@vercel/node"
+    },
+    {
+      "src": "api/test2.ts",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/api/test",
       "dest": "api/test.ts"
+    },
+    {
+      "src": "/api/test2",
+      "dest": "api/test2.ts"
     },
     {
       "src": "/(.*)",
