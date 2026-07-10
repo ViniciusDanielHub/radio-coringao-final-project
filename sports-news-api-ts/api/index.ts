@@ -79,9 +79,16 @@ async function getApp() {
   app.get('/api/categorias', async (req, reply) => {
     const { PrismaClient } = await import('@prisma/client');
     const prisma = new PrismaClient();
-    const categories = await prisma.category.findMany({ where: { isActive: true }, orderBy: { order: 'asc' } });
-    await prisma.$disconnect();
-    return reply.send(categories);
+    try {
+      const categories = await prisma.category.findMany({ where: { isActive: true }, orderBy: { order: 'asc' } });
+      console.log('Categories found:', categories.length);
+      return reply.send(categories || []);
+    } catch (err: any) {
+      console.error('Categories error:', err.message);
+      return reply.code(500).send({ error: err.message });
+    } finally {
+      await prisma.$disconnect();
+    }
   });
 
   app.get('/api/banners', async (req, reply) => {
