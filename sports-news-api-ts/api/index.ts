@@ -40,7 +40,8 @@ async function getApp() {
         orderBy: { publishedAt: 'desc' },
         include: { category: true, author: true },
       });
-      return reply.send(articles);
+      console.log('Articles found:', articles.length);
+      return reply.send(articles || []);
     } catch (err: any) {
       console.error('DB error:', err.message);
       return reply.code(500).send({ error: err.message });
