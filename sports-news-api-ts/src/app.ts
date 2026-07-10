@@ -51,9 +51,9 @@ import { footerLinksPublicRoutes, footerLinksAdminRoutes } from './modules/foote
 
 export async function buildApp() {
   const app = Fastify({
-    logger: process.env.NODE_ENV !== 'test',
+    logger: false,
     trustProxy: true,
-    bodyLimit: 2 * 1024 * 1024, // 2MB max request body
+    bodyLimit: 2 * 1024 * 1024,
   });
 
   // ─── Security ─────────────────────────────────────────────
