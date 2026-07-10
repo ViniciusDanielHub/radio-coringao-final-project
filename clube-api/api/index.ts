@@ -1,29 +1,57 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { buildApp } from '../src/app';
+import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import compress from '@fastify/compress';
+import rateLimit from '@fastify/rate-limit';
 
-let app: Awaited<ReturnType<typeof buildApp>> | null = null;
+let app: any = null;
 
 async function getApp() {
-  if (!app) {
-    app = await buildApp();
-  }
+  if (app) return app;
+
+  app = Fastify({ logger: false });
+
+  await app.register(helmet, { global: true });
+  await app.register(compress, { global: true, threshold: 1024 });
+  await app.register(cors, {
+    origin: process.env.CORS_ORIGIN?.split(',') || true,
+    credentials: true,
+  });
+  await app.register(rateLimit, {
+    global: true,
+    max: Number(process.env.RATE_LIMIT_MAX) || 60,
+    timeWindow: '1 minute',
+  });
+
+  // Health check
+  app.get('/api/health', async () => ({
+    status: 'ok',
+    ts: new Date().toISOString(),
+  }));
+
   return app;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const fastify = await getApp();
+  try {
+    const fastify = await getApp();
 
-  const result = await fastify.inject({
-    method: req.method as any,
-    url: req.url || '/',
-    headers: req.headers as Record<string, string>,
-    body: req.body,
-    query: req.query as Record<string, string>,
-  });
+    const result = await fastify.inject({
+      method: req.method as any,
+      url: req.url || '/',
+      headers: req.headers as Record<string, string>,
+      body: req.body,
+      query: req.query as Record<string, string>,
+    });
 
-  res.status(result.statusCode);
-  Object.entries(result.headers).forEach(([key, value]) => {
-    if (value) res.setHeader(key, value);
-  });
-  res.send(result.payload);
+    res.status(result.statusCode);
+    Object.entries(result.headers).forEach(([key, value]) => {
+      if (value) res.setHeader(key, value);
+    });
+    res.send(result.payload);
+  } catch (err: any) {
+    console.error('Function error:', err);
+    res.status(500).json({ error: 'Internal server error', message: err.message });
+  }
 }
