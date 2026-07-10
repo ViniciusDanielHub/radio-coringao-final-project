@@ -140,9 +140,13 @@ async function getApp() {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
+    // Test hardcoded response first
+    if (req.url === '/api/test3') {
+      return res.status(200).json({ test: 'ok', time: new Date().toISOString() });
+    }
+
     const fastify = await getApp();
 
-    console.log('Request:', req.method, req.url);
     const result = await fastify.inject({
       method: req.method as any,
       url: req.url || '/',
@@ -150,11 +154,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       body: req.body,
       query: req.query as Record<string, string>,
     });
+
+    console.log('Result:', result.statusCode, 'Payload length:', result.payload?.length);
+
     res.status(result.statusCode);
-    Object.entries(result.headers).forEach(([key, value]) => { if (value) res.setHeader(key, value); });
-    res.send(result.payload);
+    Object.entries(result.headers).forEach(([key, value]) => {
+      if (value) res.setHeader(key, value);
+    });
+    res.send(result.payload || '');
   } catch (err: any) {
     console.error('Handler error:', err?.stack || err?.message || err);
     res.status(500).json({ error: 'Server error', message: err?.message || 'Unknown' });
   }
+}
 }
