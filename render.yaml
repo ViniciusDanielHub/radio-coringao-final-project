@@ -39,29 +39,6 @@ services:
         value: 3010
     healthCheckPath: /api/health
 
-  # Frontend Next.js
-  - type: web
-    name: radio-coringao-frontend
-    runtime: docker
-    dockerfilePath: ./radio-coringao-frontend/Dockerfile
-    dockerContext: ./radio-coringao-frontend
-    envVars:
-      - key: NEXT_PUBLIC_API_URL
-        fromService:
-          name: radio-coringao-news-api
-          property: externalUrl
-        appendPath: /api
-      - key: NEXT_PUBLIC_CLUBE_API_URL
-        fromService:
-          name: radio-coringao-clube-api
-          property: externalUrl
-        appendPath: /api
-      - key: NEXT_PUBLIC_SITE_URL
-        value: https://radiocoringao.com.br
-      - key: NODE_ENV
-        value: production
-    healthCheckPath: /
-
 databases:
   - name: radio-coringao-db-news
     plan: free
