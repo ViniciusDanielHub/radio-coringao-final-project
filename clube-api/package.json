@@ -33,6 +33,7 @@
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.19.43",
+    "@vercel/node": "^5.8.23",
     "prisma": "^5.10.0",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
