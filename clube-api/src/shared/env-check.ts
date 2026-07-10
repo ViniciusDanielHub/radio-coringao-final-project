@@ -37,13 +37,11 @@ export function checkEnv(): void {
   }
 
   if (missing.length > 0) {
-    console.error('\n❌ [ENV] Variáveis obrigatórias não configuradas:\n');
-    for (const v of missing) {
-      console.error(`   • ${v.key}`);
-      if (v.hint) console.error(`     → ${v.hint}`);
-    }
-    console.error('\n   Configure-as no .env e reinicie.\n');
-    process.exit(1);
+    const msg = '\n❌ [ENV] Variáveis obrigatórias não configuradas:\n' +
+      missing.map(v => `   • ${v.key}${v.hint ? `\n     → ${v.hint}` : ''}`).join('\n') +
+      '\n   Configure-as no .env e reinicie.\n';
+    console.error(msg);
+    if (process.env.NODE_ENV !== 'production') process.exit(1);
   }
 
   if (warnings.length > 0) {
