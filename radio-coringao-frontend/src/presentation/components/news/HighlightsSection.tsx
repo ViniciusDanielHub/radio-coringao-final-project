@@ -182,13 +182,13 @@ export function HighlightsSection({ monthHighlights, weekHighlights }: Highlight
         title="Destaques da Semana"
         articles={weekHighlights}
         autoPlayInterval={10000}
-        viewMoreLink="/news?tab=semanais"
+        viewMoreLink="/noticias"
       />
       <HighlightCarousel
         title="Destaques do Mês"
         articles={monthHighlights}
         autoPlayInterval={20000}
-        viewMoreLink="/news?tab=mensais"
+        viewMoreLink="/noticias"
       />
     </section>
   );

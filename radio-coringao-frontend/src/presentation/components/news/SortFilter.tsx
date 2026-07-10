@@ -18,7 +18,7 @@ export function SortFilter({ sort }: { sort: string }) {
   function handleSelect(value: string) {
     setOpen(false);
     if (value !== sort) {
-      window.location.href = "/news?sort=" + value;
+      window.location.href = "/noticias?sort=" + value;
     }
   }
 
