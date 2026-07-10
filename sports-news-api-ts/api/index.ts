@@ -1,12 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { buildApp } from '../src/app';
 
-let app: Awaited<ReturnType<typeof buildApp>> | null = null;
+let app: any = null;
 
 async function getApp() {
-  if (!app) {
-    app = await buildApp();
-  }
+  if (app) return app;
+
+  const { buildApp } = await import('../src/app');
+  app = await buildApp();
   return app;
 }
 
@@ -28,7 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
     res.send(result.payload);
   } catch (err: any) {
-    console.error('Function error:', err);
-    res.status(500).json({ error: 'Internal server error', message: err.message });
+    console.error('Handler error:', err?.message || err);
+    res.status(500).json({ error: 'Server error', message: err?.message || 'Unknown' });
   }
 }
