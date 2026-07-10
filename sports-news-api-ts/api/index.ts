@@ -31,14 +31,20 @@ async function getApp() {
   app.get('/api/noticias', async (req, reply) => {
     const { PrismaClient } = await import('@prisma/client');
     const prisma = new PrismaClient();
-    const articles = await prisma.article.findMany({
-      where: { status: 'PUBLISHED' },
-      take: 20,
-      orderBy: { publishedAt: 'desc' },
-      include: { category: true, author: true },
-    });
-    await prisma.$disconnect();
-    return reply.send(articles);
+    try {
+      const articles = await prisma.article.findMany({
+        where: { status: 'PUBLISHED' },
+        take: 20,
+        orderBy: { publishedAt: 'desc' },
+        include: { category: true, author: true },
+      });
+      return reply.send(articles);
+    } catch (err: any) {
+      console.error('DB error:', err.message);
+      return reply.code(500).send({ error: err.message });
+    } finally {
+      await prisma.$disconnect();
+    }
   });
 
   app.get('/api/noticias/editorial', async (req, reply) => {
