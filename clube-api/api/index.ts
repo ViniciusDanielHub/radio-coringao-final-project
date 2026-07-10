@@ -40,12 +40,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (url === '/api/partidas/next' || url.startsWith('/api/partidas/next?')) {
-      const data = await db.match.findFirst({ where: { status: 'SCHEDULED' }, orderBy: { date: 'asc' } });
-      return res.status(200).json(data || {});
+      const data = await db.$queryRawUnsafe('SELECT * FROM "Match" WHERE status = $1 ORDER BY date ASC LIMIT 1', 'SCHEDULED');
+      return res.status(200).json(data[0] || {});
     }
 
     if (url === '/api/partidas/recent' || url.startsWith('/api/partidas/recent?')) {
-      const data = await db.match.findMany({ where: { status: 'FINISHED' }, orderBy: { date: 'desc' }, take: 10 });
+      const data = await db.$queryRawUnsafe('SELECT * FROM "Match" WHERE status = $1 ORDER BY date DESC LIMIT 10', 'FINISHED');
       return res.status(200).json(data);
     }
 
