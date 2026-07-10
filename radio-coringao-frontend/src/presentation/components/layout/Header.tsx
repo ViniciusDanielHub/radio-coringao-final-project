@@ -439,10 +439,10 @@ export function Header() {
                       )}
 
                       {/* ─── Articles ─── */}
-                      {hasArticles && (
+                      {hasArticles && activeSubItem.articles && (
                         <div>
                           {isSportItem && <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-2">Últimas Notícias</p>}
-                          {activeSubItem.articles!.length > 3 ? (
+                          {activeSubItem.articles.length > 3 ? (
                             <div className="space-y-3">
                               <div className="grid grid-cols-3 gap-3">
                                 <Link href={`/noticias/${activeSubItem.articles?.[0]?.slug || ''}`} onClick={closeMobileMenu} className="col-span-2 block rounded-xl overflow-hidden hover:shadow-md transition-shadow bg-surface-container-lowest">
@@ -454,7 +454,7 @@ export function Header() {
                                   </div>
                                 </Link>
                                 <div className="space-y-3">
-                                  {activeSubItem.articles!.slice(1, 3).map((art, i) => (
+                                  {activeSubItem.articles?.slice(1, 3).map((art, i) => (
                                     <Link key={`${art.slug}-${i}`} href={`/noticias/${art.slug}`} onClick={closeMobileMenu} className="flex gap-3 rounded-xl overflow-hidden hover:shadow-sm transition-shadow bg-surface-container-lowest p-2">
                                       {art.image && <img src={art.image} alt="" className="w-16 h-16 shrink-0 rounded-lg object-cover" />}
                                       <div className="min-w-0 flex-1 py-0.5">
@@ -466,7 +466,7 @@ export function Header() {
                                 </div>
                               </div>
                               <div className="grid grid-cols-3 gap-3">
-                                {activeSubItem.articles!.slice(3, 6).map((art, i) => (
+                                {activeSubItem.articles?.slice(3, 6).map((art, i) => (
                                   <Link key={`${art.slug}-${i}`} href={`/noticias/${art.slug}`} onClick={closeMobileMenu} className="flex items-center gap-2 rounded-lg p-2 hover:bg-surface-container-low transition-colors">
                                     {art.image && <img src={art.image} alt="" className="h-10 w-10 shrink-0 rounded-md object-cover" />}
                                     <div className="min-w-0"><p className="line-clamp-2 text-[11px] text-on-surface font-medium">{art.title}</p></div>
