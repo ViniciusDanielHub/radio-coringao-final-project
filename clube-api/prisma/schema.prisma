@@ -1,0 +1,333 @@
+// prisma/schema.prisma — API do Clube (isolada, time único)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum Modality {
+  FOOTBALL
+  FUTSAL
+  BASKETBALL
+}
+
+enum MatchStatus {
+  SCHEDULED
+  IN_PLAY
+  FINISHED
+  POSTPONED
+  CANCELLED
+}
+
+// Faixa de destaque na tabela (cor da barrinha lateral).
+// NONE = sem faixa (o front decide pela posição, se preferir).
+// As demais permitem forçar manualmente quando o critério não é
+// só "posição X até Y" (ex: vaga extra por outro torneio).
+enum Zone {
+  NONE
+  TITLE
+  LIBERTADORES
+  LIBERTADORES_PRELIMINARY
+  SULAMERICANA
+  RELEGATION
+}
+
+// Tipo de movimentação no elenco (entrada/saída do clube).
+// ARRIVAL    = contratação definitiva chegando
+// DEPARTURE  = saída definitiva (venda, fim de contrato, dispensa...)
+// LOAN_OUT   = jogador do clube emprestado para fora
+// LOAN_IN    = jogador chegando emprestado de outro clube
+// RETURN     = retorno de empréstimo (volta a vestir a camisa do clube)
+enum MovementType {
+  ARRIVAL
+  DEPARTURE
+  LOAN_OUT
+  LOAN_IN
+  RETURN
+}
+
+// ─── Time único (singleton — id fixo "main") ───────────────────
+model Team {
+  id          String   @id @default("main")
+  name        String
+  shortName   String?
+  logoUrl     String?
+  foundedYear Int?
+  stadium     String?
+  city        String?
+  website     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("team")
+}
+
+// ─── Categorias (Futebol, Basquete, Futsal...) ───────
+model Category {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  gender    Gender   @default(MALE)
+  modality  Modality @default(FOOTBALL)
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  parentId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent     Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children   Category[] @relation("CategoryHierarchy")
+  competitions Competition[]
+  squadMembers SquadMember[]
+  opponents   OpponentCategory[]
+  movements  PlayerMovement[]
+
+  @@index([parentId])
+  @@map("categories")
+}
+
+// ─── Campeonatos (1 por categoria, pode ter vários por temporada) ──
+model Competition {
+  id         String   @id @default(uuid())
+  name       String
+  season     String
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  isActive   Boolean  @default(true)
+  slug       String?
+
+  // Status do campeonato para o Corinthians (ex: "Em andamento", "Campeão", "Não participa", "Oitavas de Final")
+  status            String?
+  isParticipating   Boolean @default(true)
+  eliminationMessage String?
+
+  // Tipo de tabela: "single" (tabela única), "grouped" (tabelas por grupos) ou "friendly" (amistosos, sem tabela)
+  tableFormat       String  @default("single")
+  // Nomes dos grupos separados por vírgula (ex: "Grupo A,Grupo B,Grupo C")
+  groupNames        String?
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  matches  Match[]
+
+  @@index([categoryId])
+  @@unique([categoryId, name, season])
+  @@map("competitions")
+}
+
+// ─── Adversários (entidade reutilizável) ───────────────────────
+model Opponent {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  shortName   String?
+  logoUrl     String?
+  stadium     String?
+  city        String?
+  foundedYear Int?
+  website     String?
+  color       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  matches    Match[]
+  movements  PlayerMovement[]
+  categories OpponentCategory[]
+
+  @@map("opponents")
+}
+
+model OpponentCategory {
+  id          String   @id @default(uuid())
+  opponentId  String
+  categoryId  String
+  opponent    Opponent @relation(fields: [opponentId], references: [id], onDelete: Cascade)
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([opponentId, categoryId])
+  @@index([categoryId])
+  @@map("opponent_categories")
+}
+
+// ─── Partidas ───────────────────────────────────────────────────
+model Match {
+  id            String      @id @default(uuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  opponentId    String
+  opponent      Opponent    @relation(fields: [opponentId], references: [id], onDelete: Restrict)
+
+  date      DateTime
+  venue     String?
+  isHome    Boolean     @default(true)
+  status    MatchStatus @default(SCHEDULED)
+  homeScore Int?
+  awayScore Int?
+  round     String?     // ex: "Rodada 5", "Quartas de final"
+
+  // Estatísticas da partida (preenchidas após o jogo)
+  homePossession  Int?    // Posse de bola do mandante (%)
+  awayPossession  Int?    // Posse de bola do visitante (%)
+  homeShots       Int?    // Finalizações do mandante
+  awayShots       Int?    // Finalizações do visitante
+  homeOnTarget    Int?    // Finalizações no gol do mandante
+  awayOnTarget    Int?    // Finalizações no gol do visitante
+  homeCorners     Int?    // Escanteios do mandante
+  awayCorners     Int?    // Escanteios do visitante
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  isArchived Boolean @default(false) @map("is_archived")
+
+  season String @default("2026")
+
+  @@index([competitionId])
+  @@index([opponentId])
+  @@unique([competitionId, opponentId, date])
+}
+
+// ─── Elenco (por categoria) ─────────────────────────────────────
+model SquadMember {
+  id         String   @id @default(uuid())
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  name        String
+  position    String?
+  shirtNumber Int?
+  photoUrl    String?
+  birthDate   DateTime?
+  isActive    Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  movements PlayerMovement[]
+
+  @@index([categoryId])
+  @@map("squad_members")
+}
+
+// ─── Clubes envolvidos em transferências (origem/destino) ──────
+// Entidade reutilizável: o mesmo clube aparece em várias
+// movimentações sem precisar recadastrar nome/logo.
+model TransferClub {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  logoUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  movements PlayerMovement[]
+
+  @@map("transfer_clubs")
+}
+
+// ─── Movimentações de elenco (entradas e saídas do clube) ──────
+// Histórico de contratações, vendas, empréstimos e retornos.
+// Cada linha é um evento; o jogador pode ter várias ao longo do
+// tempo (ex: chega, é emprestado, volta, sai de novo).
+model PlayerMovement {
+  id            String      @id @default(uuid())
+  squadMemberId String?
+  squadMember   SquadMember? @relation(fields: [squadMemberId], references: [id], onDelete: SetNull)
+
+  type MovementType
+  date DateTime
+
+  // Snapshot do jogador (preservado mesmo após exclusão do elenco)
+  playerName      String?
+  playerPhotoUrl  String?
+
+  // Categoria/modalidade da movimentação (snapshot do squadMember no momento da criação)
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  // Clube de origem (preenchido em ARRIVAL/LOAN_IN) ou
+  // clube de destino (preenchido em DEPARTURE/LOAN_OUT).
+  // Em RETURN normalmente fica nulo (o jogador volta pro próprio clube).
+  clubId String?
+  club   TransferClub? @relation(fields: [clubId], references: [id], onDelete: SetNull)
+
+  opponentId String?
+  opponent   Opponent? @relation(fields: [opponentId], references: [id], onDelete: SetNull)
+
+  // ── Valor financeiro da movimentação ──────────────────────────
+  // Guardado em CENTAVOS (BigInt) para evitar erro de arredondamento
+  // de Float. Sempre um valor positivo — o sentido do fluxo de caixa
+  // é definido pelo `type`:
+  //   ARRIVAL / LOAN_IN   → saída de caixa  (o clube pagou/paga)
+  //   DEPARTURE / LOAN_OUT → entrada de caixa (o clube recebeu/recebe)
+  //   RETURN              → geralmente null (não há transação)
+  valueCents BigInt?
+  currency   String? @default("BRL")
+
+  // ── Empréstimo ──────────────────────────────────────
+  isFreeLoan   Boolean @default(false) // empréstimo gratuito
+  paysSalary   Boolean @default(false) // clube paga salário do jogador emprestado
+  loanValueCents BigInt? // valor do empréstimo
+  returnDate   DateTime? // data prevista de retorno (empréstimos)
+
+  // ── Venda / Transferência (porcentagem de passe) ─────────────
+  corinthiansPercentage Int? // % que ficou com o Corinthians
+  soldPercentage        Int? // % que foi vendido
+  playerPercentage      Int? // % que ficou com o jogador
+
+  notes String? // ex: "Empréstimo até dez/2026", "Fim de contrato"
+
+  season String @default("2026") // Temporada: ex "2025", "2026"
+
+  isArchived Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([squadMemberId])
+  @@index([categoryId])
+  @@index([date])
+  @@index([type, date])
+  @@index([clubId])
+  @@index([type, date, valueCents])
+  @@unique([squadMemberId, type, date, clubId])
+  @@map("player_movements")
+}
+
+// ─── Standing Entries (preserves existing table) ────────────────
+model StandingEntry {
+  id            String  @id @default(uuid())
+  competitionId String
+  teamId        String?
+  opponentId    String?
+  position      Int
+  groupName     String?
+  teamName      String
+  logoUrl       String?
+  zone          String?   @default("NONE")
+  played        Int     @default(0)
+  won           Int     @default(0)
+  drawn         Int     @default(0)
+  lost          Int     @default(0)
+  goalsFor      Int     @default(0)
+  goalsAgainst  Int     @default(0)
+  goalDifference Int    @default(0)
+  points        Int     @default(0)
+  form          String?
+  isOwnTeam     Boolean @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([competitionId])
+  @@index([teamId])
+  @@unique([competitionId, position, groupName])
+  @@map("standing_entries")
+}

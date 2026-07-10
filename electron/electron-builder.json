@@ -1,0 +1,32 @@
+{
+  "appId": "com.radiocoringao.admin",
+  "productName": "Radio Coringao Admin",
+  "mac": {
+    "target": ["dmg", "zip"],
+    "category": "public.app-category.news",
+    "icon": "build/icon.png",
+    "iconSize": 512
+  },
+  "win": {
+    "target": ["nsis", "portable"],
+    "icon": "build/icon.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Radio Coringao Admin"
+  },
+  "directories": {
+    "output": "dist-electron"
+  },
+  "files": [
+    "dist/**/*",
+    "dist-electron/main/**/*",
+    "build/icon.png",
+    "build/icon.ico"
+  ],
+  "extraResources": [],
+  "compression": "normal"
+}

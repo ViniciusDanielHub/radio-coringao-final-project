@@ -1,0 +1,427 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// USUÁRIOS DO PAINEL ADMIN
+// ============================================================
+enum Role {
+  SUPER_ADMIN
+  EDITOR_CHEFE
+  EDITOR
+  JORNALISTA
+  COLUNISTA
+  SOCIAL_MEDIA
+  MODERADOR
+  SEO_MANAGER
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  password     String
+  role         Role     @default(JORNALISTA)
+  avatar       String?  // URL da foto no Cloudinary
+  bio          String?
+  position     String?  // Cargo exibível (ex: "Editor-Chefe", "Repórter")
+  isActive     Boolean  @default(true)
+  lastLoginAt  DateTime?
+  lastLogoutAt DateTime?
+  lastSeenAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  articles      Article[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// ============================================================
+// CATEGORIAS / MODALIDADES ESPORTIVAS
+// ============================================================
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  color       String?   // Cor hex para destaque visual (#FF0000)
+  icon        String?   // Nome do ícone (ex: "football", "basketball")
+  isActive    Boolean   @default(true)
+  order       Int       @default(0)
+  parentId    String?   @map("parent_id")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  parent      Category? @relation("CategoryChildren", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryChildren")
+  articles    Article[]
+  menuItems   MenuItem[]
+
+  @@map("categories")
+}
+
+// ============================================================
+// TAGS
+// ============================================================
+model Tag {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  articles  ArticleTag[]
+
+  @@map("tags")
+}
+
+// ============================================================
+// ARTIGOS / NOTÍCIAS
+// ============================================================
+enum ArticleStatus {
+  DRAFT      // Rascunho — só o autor vê
+  REVIEW     // Aguardando revisão do editor
+  PUBLISHED  // Publicado e visível
+  ARCHIVED   // Arquivado — fora do ar mas mantido
+}
+
+enum ArticleType {
+  NEWS        // Notícia padrão
+  ANALYSIS    // Análise / opinião
+  INTERVIEW   // Entrevista
+  LIVE        // Cobertura ao vivo
+  GALLERY     // Galeria de fotos
+}
+
+model Article {
+  id              String        @id @default(uuid())
+  title           String
+  subtitle        String?       // Linha fina / chamada
+  slug            String        @unique
+  content         String        // HTML ou Markdown rico
+  excerpt         String?       // Resumo para listagens e SEO
+  status          ArticleStatus @default(DRAFT)
+  type            ArticleType   @default(NEWS)
+  isFeatured      Boolean       @default(false)
+  isBreaking      Boolean       @default(false)
+  isPinned        Boolean       @default(false)
+  order           Int           @default(0) // posição do card na home (menor = primeiro)
+
+  // Capa
+  coverImage      String?
+  coverImageAlt   String?
+  coverImageCredit String?
+
+  // Aspas / citações do artigo (JSON array de { author, text })
+  quotes          Json?
+
+  // Relacionamentos
+  authorId        String
+  categoryId      String
+  author          User          @relation(fields: [authorId], references: [id])
+  category        Category      @relation(fields: [categoryId], references: [id])
+  tags            ArticleTag[]
+  images          ArticleImage[]
+  views           ArticleView[]   // ← leituras registradas (relatórios do dashboard)
+  comments        Comment[]
+
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+  canonicalUrl    String?
+
+  viewCount       Int           @default(0)
+
+  publishedAt     DateTime?
+  scheduledAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([status, publishedAt])
+  @@index([categoryId])
+  @@index([authorId])
+  @@index([slug])
+  @@map("articles")
+}
+
+// ============================================================
+// GALERIA DE IMAGENS POR ARTIGO
+// ============================================================
+model ArticleImage {
+  id          String   @id @default(uuid())
+  url         String
+  alt         String?
+  caption     String?  // Legenda da imagem
+  credit      String?  // Créditos da foto (ex: "Foto: Divulgação Corinthians")
+  description String?  // O que a pessoa está fazendo na foto
+  order       Int      @default(0)
+  articleId   String
+  article     Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@map("article_images")
+}
+
+// ============================================================
+// LEITURAS DE ARTIGOS (sem cadastro de usuários no site público)
+// ============================================================
+// Cada leitura de um artigo publicado gera um registro aqui.
+// Usado para:
+//   - "quantas pessoas leram" cada matéria (leitores únicos = ipHash distintos)
+//   - "quantas leituras por mês" (relatórios do dashboard)
+//   - "qual foi a matéria mais lida" (geral ou em um período)
+//
+// O IP NUNCA é salvo em texto puro — apenas o hash (SHA-256 + salt da app),
+// por privacidade/LGPD. O hash permite identificar "é o mesmo visitante"
+// sem identificar a pessoa.
+model ArticleView {
+  id        String   @id @default(uuid())
+  articleId String
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  ipHash     String   // hash do IP do visitante — nunca o IP em texto puro
+  userAgent  String?
+  viewedAt   DateTime @default(now())
+  viewBucket DateTime @db.Date // dia (UTC) truncado — usado pela constraint única
+
+  @@unique([articleId, ipHash, viewBucket])
+  @@index([viewedAt])
+  @@index([articleId])
+  @@map("article_views")
+}
+
+// ============================================================
+// RELAÇÃO N:N ARTIGO <-> TAG
+// ============================================================
+model ArticleTag {
+  articleId String
+  tagId     String
+  article   Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, tagId])
+  @@map("article_tags")
+}
+
+// ============================================================
+// MENU DE NAVEGAÇÃO
+// ============================================================
+model MenuItem {
+  id         String     @id @default(uuid())
+  label      String
+  url        String
+  target     String     @default("_self")
+  order      Int        @default(0)
+  parentId   String?
+  categoryId String?
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+
+  parent     MenuItem?  @relation("MenuHierarchy", fields: [parentId], references: [id])
+  children   MenuItem[] @relation("MenuHierarchy")
+  category   Category?  @relation(fields: [categoryId], references: [id])
+
+  @@unique([label, parentId])
+  @@map("menu_items")
+}
+
+// ============================================================
+// BANNERS
+// ============================================================
+model Banner {
+  id          String   @id @default(uuid())
+  title       String
+  subtitle    String?
+  imageUrl    String
+  linkUrl     String?
+  position    String   @default("home-top") // home-top, home-mid, sidebar, footer
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("banners")
+}
+
+// ============================================================
+// CONFIGURAÇÕES GERAIS DO SITE
+// ============================================================
+model SiteSettings {
+  id               String  @id @default("main")
+  siteName         String  @default("Portal Esportivo")
+  siteDescription  String?
+  logoUrl          String?
+  faviconUrl       String?
+  primaryColor     String  @default("#E63946")
+  socialFacebook   String?
+  socialInstagram  String?
+  socialTwitter    String?
+  socialYoutube    String?
+  socialTiktok     String?
+  googleAnalytics  String?
+  footerText       String?
+  copyrightText    String?
+  biography        String?
+  updatedAt        DateTime @updatedAt
+
+  @@map("site_settings")
+}
+
+// ============================================================
+// LINKS DO FOOTER (ex: "Termos de Uso", "Quem Somos")
+// ============================================================
+model FooterLink {
+  id          String   @id @default(uuid())
+  label       String
+  href        String
+  imageUrl    String?
+  description String?
+  type        String   @default("link") // link, social, copyright
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("footer_links")
+}
+
+// ============================================================
+// PATROCINADORES
+// ============================================================
+model Sponsor {
+  id          String   @id @default(uuid())
+  name        String
+  logoUrl     String
+  websiteUrl  String?
+  description String?
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("sponsors")
+}
+
+// ============================================================
+// EVENTOS
+// ============================================================
+model Event {
+  id          String       @id @default(uuid())
+  title       String
+  slug        String       @unique
+  description String
+  location    String?
+  startsAt    DateTime
+  endsAt      DateTime?
+  coverImage  String?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  images      EventImage[]
+  categories  EventCategory[]
+
+  @@map("events")
+}
+
+model EventImage {
+  id        String   @id @default(uuid())
+  url       String
+  alt       String?
+  caption   String?
+  order     Int      @default(0)
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@map("event_images")
+}
+
+// ============================================================
+// CATEGORIAS DE EVENTOS (ex: "Próximos Eventos", "Eventos Passados")
+// ============================================================
+model EventCategory {
+  id        String   @id @default(uuid())
+  name      String
+  order     Int      @default(0)
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  items     EventItem[]
+
+  @@index([eventId])
+  @@map("event_categories")
+}
+
+// ============================================================
+// ITENS DE EVENTOS (cada item dentro de uma categoria)
+// ============================================================
+model EventItem {
+  id              String   @id @default(uuid())
+  title           String
+  description     String
+  date            String?  // ex: "Dom, 22/06" ou "Todo ano"
+  time            String?  // ex: "16:00"
+  venue           String?
+  status          String   @default("agendado") // agendado | encerrado | em andamento
+  image           String?
+  link            String?
+  order           Int      @default(0)
+  eventCategoryId String
+  eventCategory   EventCategory @relation(fields: [eventCategoryId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+
+  @@index([eventCategoryId])
+  @@map("event_items")
+}
+
+// ============================================================
+// COMENTÁRIOS
+// ============================================================
+model Comment {
+  id          String   @id @default(uuid())
+  name        String
+  content     String
+  articleId   String
+  article     Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([articleId])
+  @@map("comments")
+}
+
+// ============================================================
+// NEWSLETTER
+// ============================================================
+model NewsletterSubscriber {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("newsletter_subscribers")
+}

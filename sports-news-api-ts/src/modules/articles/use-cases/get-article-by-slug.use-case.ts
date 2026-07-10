@@ -1,0 +1,14 @@
+// src/modules/articles/use-cases/get-article-by-slug.use-case.ts
+import type { IArticlePublicRepository } from '../repositories/article-public.repository.interface';
+import { NotFoundError } from '../../../shared/errors';
+
+export class GetArticleBySlugUseCase {
+  constructor(private readonly repo: IArticlePublicRepository) { }
+
+  async execute(slug: string) {
+    const article = await this.repo.findBySlugPublic(slug);
+    if (!article) throw new NotFoundError('Artigo não encontrado.');
+
+    return article;
+  }
+}

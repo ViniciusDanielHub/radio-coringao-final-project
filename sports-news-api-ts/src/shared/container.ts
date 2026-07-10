@@ -1,0 +1,151 @@
+import { jwtService } from './services/jwt';
+
+// ─── Infraestrutura ──────────────────────────────────────────
+import { PrismaArticlePublicRepository } from '../modules/articles/infrastructure/prisma-article-public.repository';
+import { PrismaArticleAdminRepository } from '../modules/articles/infrastructure/prisma-article-admin.repository';
+import { UserRepository } from '../modules/users/users.repository';
+import { RefreshTokenRepository } from '../modules/auth/auth.repository';
+import { CategoryRepository } from '../modules/categories/categories.repository';
+import { TagRepository } from '../modules/tags/tags.repository';
+import { BannerRepository } from '../modules/banners/banners.repository';
+import { MenuRepository } from '../modules/menu/menu.repository';
+import { SiteSettingsRepository } from '../modules/settings/settings.repository';
+import { SponsorRepository } from '../modules/sponsors/sponsors.repository';
+import { EventRepository } from '../modules/events/events.repository';
+
+// ─── Use Cases — Articles public ─────────────────────────────
+import { ListArticlesUseCase } from '../modules/articles/use-cases/list-articles.use-case';
+import { GetArticleBySlugUseCase } from '../modules/articles/use-cases/get-article-by-slug.use-case';
+import { SearchArticlesUseCase } from '../modules/articles/use-cases/search-articles.use-case';
+import { GetTrendingArticlesUseCase } from '../modules/articles/use-cases/get-trending-articles.use-case';
+
+// ─── Use Cases — Articles admin ──────────────────────────────
+import { ListAdminArticlesUseCase } from '../modules/articles/use-cases/list-admin-articles.use-case';
+import { GetAdminArticleByIdUseCase } from '../modules/articles/use-cases/get-admin-article-by-id.use-case';
+import { SearchAdminArticlesUseCase } from '../modules/articles/use-cases/search-admin-articles.use-case';
+import { CreateArticleUseCase } from '../modules/articles/use-cases/create-article.use-case';
+import { UpdateArticleUseCase } from '../modules/articles/use-cases/update-article.use-case';
+import { UpdateArticleStatusUseCase } from '../modules/articles/use-cases/update-article-status.use-case';
+import { DeleteArticleUseCase } from '../modules/articles/use-cases/delete-article.use-case';
+import { AddArticleImageUseCase } from '../modules/articles/use-cases/add-article-image.use-case';
+import { DeleteArticleImageUseCase } from '../modules/articles/use-cases/delete-article-image.use-case';
+import { ArchiveArticleUseCase } from '../modules/articles/use-cases/archive-article.use-case';
+import { UnarchiveArticleUseCase } from '../modules/articles/use-cases/unarchive-article.use-case';
+
+// ─── Services ─────────────────────────────────────────────────
+import { AuthService } from '../modules/auth/auth.service';
+import { UserService } from '../modules/users/users.service';
+import { CategoryService } from '../modules/categories/categories.service';
+import { TagService } from '../modules/tags/tags.service';
+import { BannerService } from '../modules/banners/banners.service';
+import { MenuService } from '../modules/menu/menu.service';
+import { SettingsService } from '../modules/settings/settings.service';
+import { DashboardService } from '../modules/dashboard/dashboard.service';
+import { CategoryReportsService } from '../modules/articles/category-reports.service';
+import { SponsorService } from '../modules/sponsors/sponsors.service';
+import { EventService } from '../modules/events/events.service';
+import { LiveScoresService } from '../modules/live-scores/live-scores.service';
+
+// ─── Controllers ─────────────────────────────────────────────
+import { ArticlePublicController } from '../modules/articles/public/articles-public.controller';
+import { ArticleAdminController } from '../modules/articles/admin/articles-admin.controller';
+import { AuthController } from '../modules/auth/auth.controller';
+import { UserController } from '../modules/users/users.controller';
+import { CategoryController } from '../modules/categories/categories.controller';
+import { TagController } from '../modules/tags/tags.controller';
+import { BannerController } from '../modules/banners/banners.controller';
+import { MenuController } from '../modules/menu/menu.controller';
+import { SettingsController } from '../modules/settings/settings.controller';
+import { DashboardController } from '../modules/dashboard/dashboard.controller';
+import { CategoryReportsController } from '../modules/articles/category-reports.controller';
+import { LiveScoresController } from '../modules/live-scores/live-scores.controller';
+import { SponsorController } from '../modules/sponsors/sponsors.controller';
+import { EventController } from '../modules/events/events.controller';
+
+// ═══════════════════════════════════════════════════════════════
+// Repositórios
+// ═══════════════════════════════════════════════════════════════
+const articlePublicRepo = new PrismaArticlePublicRepository();
+const articleAdminRepo = new PrismaArticleAdminRepository();
+const userRepo = new UserRepository();
+const refreshTokenRepo = new RefreshTokenRepository();
+const categoryRepo = new CategoryRepository();
+const tagRepo = new TagRepository();
+const bannerRepo = new BannerRepository();
+const menuRepo = new MenuRepository();
+const settingsRepo = new SiteSettingsRepository();
+const sponsorRepo = new SponsorRepository();
+const eventRepo = new EventRepository();
+
+// ═══════════════════════════════════════════════════════════════
+// Use Cases — Articles
+// ═══════════════════════════════════════════════════════════════
+const listArticlesUseCase = new ListArticlesUseCase(articlePublicRepo);
+const getArticleBySlugUseCase = new GetArticleBySlugUseCase(articlePublicRepo);
+const searchArticlesUseCase = new SearchArticlesUseCase(articlePublicRepo);
+const getTrendingArticlesUseCase = new GetTrendingArticlesUseCase(articlePublicRepo);
+
+const listAdminArticlesUseCase = new ListAdminArticlesUseCase(articleAdminRepo);
+const getAdminArticleByIdUseCase = new GetAdminArticleByIdUseCase(articleAdminRepo);
+const searchAdminArticlesUseCase = new SearchAdminArticlesUseCase(articleAdminRepo);
+const createArticleUseCase = new CreateArticleUseCase(articleAdminRepo);
+const updateArticleUseCase = new UpdateArticleUseCase(articleAdminRepo);
+const updateArticleStatusUseCase = new UpdateArticleStatusUseCase(articleAdminRepo);
+const deleteArticleUseCase = new DeleteArticleUseCase(articleAdminRepo);
+const addArticleImageUseCase = new AddArticleImageUseCase(articleAdminRepo);
+const deleteArticleImageUseCase = new DeleteArticleImageUseCase(articleAdminRepo);
+const archiveArticleUseCase = new ArchiveArticleUseCase(articleAdminRepo);
+const unarchiveArticleUseCase = new UnarchiveArticleUseCase(articleAdminRepo);
+
+// ═══════════════════════════════════════════════════════════════
+// Services
+// ═══════════════════════════════════════════════════════════════
+const authService = new AuthService(userRepo, refreshTokenRepo, jwtService);
+const userService = new UserService(userRepo, refreshTokenRepo);
+const categoryService = new CategoryService(categoryRepo);
+const tagService = new TagService(tagRepo);
+const bannerService = new BannerService(bannerRepo);
+const menuService = new MenuService(menuRepo);
+const settingsService = new SettingsService(settingsRepo);
+const dashboardService = new DashboardService(articleAdminRepo, userRepo, categoryRepo);
+const categoryReportsService = new CategoryReportsService(articleAdminRepo);
+const liveScoresService = new LiveScoresService();
+const sponsorService = new SponsorService(sponsorRepo);
+const eventService = new EventService(eventRepo);
+
+// ═══════════════════════════════════════════════════════════════
+// Controllers
+// ═══════════════════════════════════════════════════════════════
+export const articlePublicController = new ArticlePublicController(
+  listArticlesUseCase,
+  getArticleBySlugUseCase,
+  searchArticlesUseCase,
+  getTrendingArticlesUseCase,
+);
+
+export const articleAdminController = new ArticleAdminController(
+  listAdminArticlesUseCase,
+  getAdminArticleByIdUseCase,
+  searchAdminArticlesUseCase,
+  createArticleUseCase,
+  updateArticleUseCase,
+  updateArticleStatusUseCase,
+  deleteArticleUseCase,
+  addArticleImageUseCase,
+  deleteArticleImageUseCase,
+  archiveArticleUseCase,
+  unarchiveArticleUseCase,
+);
+
+export const authController = new AuthController(authService);
+export const userController = new UserController(userService);
+export const categoryController = new CategoryController(categoryService);
+export const tagController = new TagController(tagService);
+export const bannerController = new BannerController(bannerService);
+export const menuController = new MenuController(menuService);
+export const settingsController = new SettingsController(settingsService);
+export const dashboardController = new DashboardController(dashboardService);
+export const categoryReportsController = new CategoryReportsController(categoryReportsService);
+export const liveScoresController = new LiveScoresController(liveScoresService);
+export const sponsorController = new SponsorController(sponsorService);
+export const eventController = new EventController(eventService);

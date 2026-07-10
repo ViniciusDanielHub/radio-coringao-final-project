@@ -1,0 +1,420 @@
+// src/modules/matches/matches.routes.ts
+import type { FastifyInstance } from 'fastify';
+import { prisma } from '../../shared/database/prisma';
+import { requireAdminAuth } from '../../shared/plugins/admin-auth.plugin';
+import { Validator, sanitizePagination, VALID_MATCH_STATUSES } from '../../shared/validation';
+
+const matchInclude = {
+  opponent: { select: { id: true, name: true, logoUrl: true } },
+  competition: {
+    select: { id: true, name: true, season: true, category: { select: { name: true, slug: true, gender: true } } },
+  },
+} as const;
+
+export async function matchesPublicRoutes(app: FastifyInstance): Promise<void> {
+  // GET /api/matches?category=sub-20&status=SCHEDULED&limit=10&page=1
+  app.get('/partidas', async (request, reply) => {
+    const { category, status, competitionId, limit, page } = request.query as {
+      category?: string; status?: string; competitionId?: string; limit?: string; page?: string;
+    };
+
+    if (status) {
+      new Validator()
+        .oneOf('status', status, VALID_MATCH_STATUSES, 'status da partida')
+        .throw();
+    }
+
+    const { skip, take, page: p } = sanitizePagination(page, limit, 100);
+
+    const where = {
+      isArchived: false,
+      ...(status && { status: status as any }),
+      ...(competitionId && { competitionId }),
+      ...(category && { competition: { category: { slug: category } } }),
+    };
+
+    const [data, total] = await Promise.all([
+      prisma.match.findMany({ where, include: matchInclude, orderBy: { date: 'desc' }, skip, take }),
+      prisma.match.count({ where }),
+    ]);
+
+    return reply.send({ data, total, page: p, limit: take, totalPages: Math.ceil(total / take) });
+  });
+
+  // GET /api/matches/next?category=principal&limit=5
+  app.get('/partidas/next', async (request, reply) => {
+    const { category, limit } = request.query as { category?: string; limit?: string };
+    const take = limit ? Math.min(Math.max(Number(limit) || 5, 1), 50) : 5;
+
+    const matches = await prisma.match.findMany({
+      where: {
+        isArchived: false,
+        status: 'SCHEDULED',
+        date: { gte: new Date() },
+        ...(category && { competition: { category: { slug: category } } }),
+      },
+      include: matchInclude,
+      orderBy: { date: 'asc' },
+      take,
+    });
+    return reply.send(matches);
+  });
+
+  // GET /api/matches/recent?category=principal&limit=5
+  app.get('/partidas/recent', async (request, reply) => {
+    const { category, limit } = request.query as { category?: string; limit?: string };
+    const take = limit ? Math.min(Math.max(Number(limit) || 5, 1), 50) : 5;
+
+    const matches = await prisma.match.findMany({
+      where: {
+        isArchived: false,
+        status: 'FINISHED',
+        ...(category && { competition: { category: { slug: category } } }),
+      },
+      include: matchInclude,
+      orderBy: { date: 'desc' },
+      take,
+    });
+    return reply.send(matches);
+  });
+
+  // GET /api/matches/next-feminino — próximo jogo da categoria feminina
+  app.get('/partidas/next-feminino', async (_request, reply) => {
+    const match = await prisma.match.findFirst({
+      where: {
+        isArchived: false,
+        status: 'SCHEDULED',
+        date: { gte: new Date() },
+        competition: { category: { gender: 'FEMALE' } },
+      },
+      include: matchInclude,
+      orderBy: { date: 'asc' },
+    });
+    return reply.send(match ?? null);
+  });
+
+  // GET /api/matches/next-basquete — próximo jogo da categoria basquete
+  app.get('/partidas/next-basquete', async (_request, reply) => {
+    const match = await prisma.match.findFirst({
+      where: {
+        isArchived: false,
+        status: 'SCHEDULED',
+        date: { gte: new Date() },
+        competition: { category: { modality: 'BASKETBALL' } },
+      },
+      include: matchInclude,
+      orderBy: { date: 'asc' },
+    });
+    return reply.send(match ?? null);
+  });
+
+  // GET /api/matches/:id — partida por ID (DEVE ficar após rotas estáticas)
+  app.get('/partidas/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    const match = await prisma.match.findUnique({
+      where: { id },
+      include: matchInclude,
+    });
+
+    if (!match) {
+      return reply.code(404).send({
+        error: `Partida com ID "${id}" não encontrada.`,
+      });
+    }
+
+    return reply.send(match);
+  });
+}
+
+export async function matchesAdminRoutes(app: FastifyInstance): Promise<void> {
+  app.addHook('preHandler', requireAdminAuth);
+
+  app.get('/partidas', async (request, reply) => {
+    const { page, limit, archived, season } = request.query as any;
+    const { skip, take, page: p } = sanitizePagination(page, limit, 100);
+
+    const where: any = {};
+    if (season) where.season = season;
+    if (archived === 'true') {
+      where.isArchived = true;
+    } else if (archived !== 'all') {
+      where.isArchived = false;
+    }
+
+    const [data, total] = await Promise.all([
+      prisma.match.findMany({ where, include: matchInclude, orderBy: { date: 'desc' }, skip, take }),
+      prisma.match.count({ where }),
+    ]);
+    return reply.send({ data, total, page: p, limit: take, totalPages: Math.ceil(total / take) });
+  });
+
+  app.post('/partidas', async (request, reply) => {
+    const body = request.body as any;
+
+    new Validator()
+      .required('competitionId', body?.competitionId, 'competição')
+      .required('opponentId', body?.opponentId, 'adversário')
+      .required('date', body?.date, 'data')
+      .isoDate('date', body?.date, 'data')
+      .oneOf('status', body?.status, VALID_MATCH_STATUSES, 'status')
+      .string('venue', body?.venue, { max: 120, label: 'local' })
+      .string('round', body?.round, { max: 60, label: 'rodada' })
+      .boolean('isHome', body?.isHome, 'mandante')
+      .integer('homeScore', body?.homeScore, { min: 0, max: 99, label: 'gols do mandante' })
+      .integer('awayScore', body?.awayScore, { min: 0, max: 99, label: 'gols do visitante' })
+      .integer('homePossession', body?.homePossession, { min: 0, max: 100, label: 'posse mandante' })
+      .integer('awayPossession', body?.awayPossession, { min: 0, max: 100, label: 'posse visitante' })
+      .integer('homeShots', body?.homeShots, { min: 0, max: 99, label: 'finalizações mandante' })
+      .integer('awayShots', body?.awayShots, { min: 0, max: 99, label: 'finalizações visitante' })
+      .integer('homeOnTarget', body?.homeOnTarget, { min: 0, max: 99, label: 'finalizações no gol mandante' })
+      .integer('awayOnTarget', body?.awayOnTarget, { min: 0, max: 99, label: 'finalizações no gol visitante' })
+      .integer('homeCorners', body?.homeCorners, { min: 0, max: 99, label: 'escanteios mandante' })
+      .integer('awayCorners', body?.awayCorners, { min: 0, max: 99, label: 'escanteios visitante' })
+      .throw();
+
+    // Valida que placar só pode ser informado para partidas finalizadas
+    const status = body.status ?? 'SCHEDULED';
+    const hasScore = body.homeScore !== undefined || body.awayScore !== undefined;
+    if (hasScore && !['FINISHED', 'IN_PLAY'].includes(status)) {
+      return reply.code(422).send({
+        error: 'Placar só pode ser informado para partidas com status FINISHED ou IN_PLAY.',
+        received: { status, homeScore: body.homeScore, awayScore: body.awayScore },
+      });
+    }
+
+    // Verifica existência de competição e adversário em paralelo
+    const [competition, opponent] = await Promise.all([
+      prisma.competition.findUnique({ where: { id: body.competitionId } }),
+      prisma.opponent.findUnique({ where: { id: body.opponentId } }),
+    ]);
+
+    const errors = [];
+    if (!competition) {
+      errors.push({
+        field: 'competitionId',
+        message: `Competição com ID "${body.competitionId}" não encontrada.`,
+        hint: 'Use GET /api/admin/competitions para listar as competições.',
+      });
+    }
+    if (!opponent) {
+      errors.push({
+        field: 'opponentId',
+        message: `Adversário com ID "${body.opponentId}" não encontrado.`,
+        hint: 'Use GET /api/admin/opponents para listar os adversários ou crie um novo.',
+      });
+    }
+    if (errors.length > 0) {
+      return reply.code(422).send({ error: 'Referências inválidas.', details: errors });
+    }
+
+    // Evita cadastrar a mesma partida duas vezes (mesma competição,
+    // adversário e data — protegido também por @@unique no schema).
+    const duplicate = await prisma.match.findUnique({
+      where: {
+        competitionId_opponentId_date: {
+          competitionId: body.competitionId,
+          opponentId: body.opponentId,
+          date: new Date(body.date),
+        },
+      },
+      select: { id: true },
+    });
+    if (duplicate) {
+      return reply.code(409).send({
+        error: 'Já existe uma partida cadastrada com essa competição, adversário e data.',
+        conflictId: duplicate.id,
+        hint: 'Use PATCH /api/admin/matches/:id para atualizar a partida existente.',
+      });
+    }
+
+    const match = await prisma.match.create({
+      data: {
+        competitionId: body.competitionId,
+        opponentId: body.opponentId,
+        date: new Date(body.date),
+        venue: body.venue?.trim() ?? null,
+        isHome: body.isHome ?? true,
+        status: body.status ?? 'SCHEDULED',
+        season: body.season || String(new Date(body.date).getFullYear()),
+        homeScore: body.homeScore !== undefined ? Number(body.homeScore) : null,
+        awayScore: body.awayScore !== undefined ? Number(body.awayScore) : null,
+        round: body.round?.trim() ?? null,
+        homePossession: body.homePossession !== undefined ? Number(body.homePossession) : null,
+        awayPossession: body.awayPossession !== undefined ? Number(body.awayPossession) : null,
+        homeShots: body.homeShots !== undefined ? Number(body.homeShots) : null,
+        awayShots: body.awayShots !== undefined ? Number(body.awayShots) : null,
+        homeOnTarget: body.homeOnTarget !== undefined ? Number(body.homeOnTarget) : null,
+        awayOnTarget: body.awayOnTarget !== undefined ? Number(body.awayOnTarget) : null,
+        homeCorners: body.homeCorners !== undefined ? Number(body.homeCorners) : null,
+        awayCorners: body.awayCorners !== undefined ? Number(body.awayCorners) : null,
+      },
+      include: matchInclude,
+    });
+    return reply.code(201).send(match);
+  });
+
+  app.patch('/partidas/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const body = request.body as any;
+
+    if (!body || Object.keys(body).length === 0) {
+      return reply.code(422).send({
+        error: 'Nenhum campo enviado para atualização.',
+        hint: 'Envie ao menos um campo válido.',
+      });
+    }
+
+    new Validator()
+      .isoDate('date', body.date, 'data')
+      .oneOf('status', body.status, VALID_MATCH_STATUSES, 'status')
+      .string('venue', body.venue, { max: 120, label: 'local' })
+      .string('round', body.round, { max: 60, label: 'rodada' })
+      .boolean('isHome', body.isHome, 'mandante')
+      .integer('homeScore', body.homeScore, { min: 0, max: 99, label: 'gols do mandante' })
+      .integer('awayScore', body.awayScore, { min: 0, max: 99, label: 'gols do visitante' })
+      .integer('homePossession', body.homePossession, { min: 0, max: 100, label: 'posse mandante' })
+      .integer('awayPossession', body.awayPossession, { min: 0, max: 100, label: 'posse visitante' })
+      .integer('homeShots', body.homeShots, { min: 0, max: 99, label: 'finalizações mandante' })
+      .integer('awayShots', body.awayShots, { min: 0, max: 99, label: 'finalizações visitante' })
+      .integer('homeOnTarget', body.homeOnTarget, { min: 0, max: 99, label: 'finalizações no gol mandante' })
+      .integer('awayOnTarget', body.awayOnTarget, { min: 0, max: 99, label: 'finalizações no gol visitante' })
+      .integer('homeCorners', body.homeCorners, { min: 0, max: 99, label: 'escanteios mandante' })
+      .integer('awayCorners', body.awayCorners, { min: 0, max: 99, label: 'escanteios visitante' })
+      .throw();
+
+    // Se estiver atualizando placar, valida status atual ou novo
+    const hasScore = body.homeScore !== undefined || body.awayScore !== undefined;
+    if (hasScore) {
+      const current = await prisma.match.findUnique({ where: { id }, select: { status: true } });
+      const effectiveStatus = body.status ?? current?.status;
+      if (effectiveStatus && !['FINISHED', 'IN_PLAY'].includes(effectiveStatus)) {
+        return reply.code(422).send({
+          error: `Placar não pode ser definido para partidas com status "${effectiveStatus}". Use FINISHED ou IN_PLAY.`,
+        });
+      }
+    }
+
+    // Verifica existência de competição/adversário se estiverem sendo trocados
+    // (mesma checagem feita no POST — sem isso, o erro só apareceria como uma
+    // violação de FK genérica do Prisma em vez de uma mensagem clara)
+    const refErrors: { field: string; message: string; hint?: string }[] = [];
+    if (body.competitionId) {
+      const competition = await prisma.competition.findUnique({ where: { id: body.competitionId } });
+      if (!competition) {
+        refErrors.push({
+          field: 'competitionId',
+          message: `Competição com ID "${body.competitionId}" não encontrada.`,
+          hint: 'Use GET /api/admin/competitions para listar as competições.',
+        });
+      }
+    }
+    if (body.opponentId) {
+      const opponent = await prisma.opponent.findUnique({ where: { id: body.opponentId } });
+      if (!opponent) {
+        refErrors.push({
+          field: 'opponentId',
+          message: `Adversário com ID "${body.opponentId}" não encontrado.`,
+          hint: 'Use GET /api/admin/opponents para listar os adversários.',
+        });
+      }
+    }
+    if (refErrors.length > 0) {
+      return reply.code(422).send({ error: 'Referências inválidas.', details: refErrors });
+    }
+
+    // Se algum dos três campos da chave de unicidade está sendo alterado,
+    // revalida contra a partida resultante para evitar duplicidade.
+    if (body.competitionId || body.opponentId || body.date) {
+      const current = await prisma.match.findUnique({
+        where: { id },
+        select: { competitionId: true, opponentId: true, date: true },
+      });
+      if (current) {
+        const resultingKey = {
+          competitionId: body.competitionId ?? current.competitionId,
+          opponentId: body.opponentId ?? current.opponentId,
+          date: body.date ? new Date(body.date) : current.date,
+        };
+        const duplicate = await prisma.match.findUnique({
+          where: { competitionId_opponentId_date: resultingKey },
+          select: { id: true },
+        });
+        if (duplicate && duplicate.id !== id) {
+          return reply.code(409).send({
+            error: 'Já existe outra partida cadastrada com essa competição, adversário e data.',
+            conflictId: duplicate.id,
+          });
+        }
+      }
+    }
+
+    const match = await prisma.match.update({
+      where: { id },
+      data: {
+        ...(body.competitionId && { competitionId: body.competitionId }),
+        ...(body.opponentId && { opponentId: body.opponentId }),
+        ...(body.date && { date: new Date(body.date) }),
+        ...(body.venue !== undefined && { venue: body.venue?.trim() ?? null }),
+        ...(body.isHome !== undefined && { isHome: Boolean(body.isHome) }),
+        ...(body.status && { status: body.status }),
+        ...(body.season !== undefined && { season: body.season }),
+        ...(body.homeScore !== undefined && {
+          homeScore: body.homeScore === null ? null : Number(body.homeScore),
+        }),
+        ...(body.awayScore !== undefined && {
+          awayScore: body.awayScore === null ? null : Number(body.awayScore),
+        }),
+        ...(body.round !== undefined && { round: body.round?.trim() ?? null }),
+        ...(body.homePossession !== undefined && {
+          homePossession: body.homePossession === null ? null : Number(body.homePossession),
+        }),
+        ...(body.awayPossession !== undefined && {
+          awayPossession: body.awayPossession === null ? null : Number(body.awayPossession),
+        }),
+        ...(body.homeShots !== undefined && {
+          homeShots: body.homeShots === null ? null : Number(body.homeShots),
+        }),
+        ...(body.awayShots !== undefined && {
+          awayShots: body.awayShots === null ? null : Number(body.awayShots),
+        }),
+        ...(body.homeOnTarget !== undefined && {
+          homeOnTarget: body.homeOnTarget === null ? null : Number(body.homeOnTarget),
+        }),
+        ...(body.awayOnTarget !== undefined && {
+          awayOnTarget: body.awayOnTarget === null ? null : Number(body.awayOnTarget),
+        }),
+        ...(body.homeCorners !== undefined && {
+          homeCorners: body.homeCorners === null ? null : Number(body.homeCorners),
+        }),
+        ...(body.awayCorners !== undefined && {
+          awayCorners: body.awayCorners === null ? null : Number(body.awayCorners),
+        }),
+      },
+      include: matchInclude,
+    });
+    return reply.send(match);
+  });
+
+  app.delete('/partidas/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    await prisma.match.delete({ where: { id } });
+    return reply.send({ message: 'Partida deletada com sucesso.' });
+  });
+
+  app.patch('/partidas/:id/archive', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const match = await prisma.match.findUnique({ where: { id } });
+    if (!match) return reply.code(404).send({ error: 'Partida não encontrada.' });
+    const updated = await prisma.match.update({ where: { id }, data: { isArchived: true } });
+    return reply.send(updated);
+  });
+
+  app.patch('/partidas/:id/unarchive', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const match = await prisma.match.findUnique({ where: { id } });
+    if (!match) return reply.code(404).send({ error: 'Partida não encontrada.' });
+    const updated = await prisma.match.update({ where: { id }, data: { isArchived: false } });
+    return reply.send(updated);
+  });
+}

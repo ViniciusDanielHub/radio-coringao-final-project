@@ -1,0 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'Work Sans', sans-serif;
+    background-color: #fbf9f8;
+    color: #1b1c1c;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Manrope', sans-serif;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #f5f3f3;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #cfc4c5;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #7e7576;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-primary-foreground px-4 py-2 rounded-lg font-headline font-bold text-label-sm transition-all duration-200 hover:opacity-90 active:scale-95;
+  }
+
+  .btn-secondary {
+    @apply bg-primary text-primary-foreground px-4 py-2 rounded-lg font-headline font-bold text-label-sm transition-all duration-200 hover:bg-gray-800 active:scale-95;
+  }
+  .btn-secondary:disabled {
+    @apply bg-gray-200 text-gray-400 cursor-not-allowed hover:bg-gray-200 active:scale-100;
+  }
+
+  .btn-outline {
+    @apply border border-outline-variant bg-transparent text-on-surface px-4 py-2 rounded-lg font-headline font-bold text-label-sm transition-all duration-200 hover:bg-surface-container-low;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-on-surface-variant px-4 py-2 rounded-lg font-headline font-bold text-label-sm transition-all duration-200 hover:bg-surface-container-low;
+  }
+
+  .btn-danger {
+    @apply bg-gray-800 text-white px-4 py-2 rounded-lg font-headline font-bold text-label-sm transition-all duration-200 hover:bg-black active:scale-95;
+  }
+
+  .input-field {
+    @apply w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg font-body text-body-md text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200;
+  }
+
+  .select-field {
+    @apply w-full px-3 py-2.5 bg-surface-container border border-outline-variant rounded-lg font-body text-body-md text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 appearance-none cursor-pointer;
+  }
+
+  .card {
+    @apply bg-surface-container-lowest border border-outline-variant rounded-lg p-6 transition-all duration-200 hover:shadow-sm;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full font-headline font-bold text-label-sm;
+  }
+
+  .table-row {
+    @apply border-b border-outline-variant hover:bg-surface-container-low transition-colors duration-150;
+  }
+
+  /* Animations */
+  .fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  .scale-in {
+    animation: scaleIn 0.2s ease-out;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* TipTap Editor Styles */
+.tiptap-editor {
+  @apply border border-outline-variant rounded-lg overflow-hidden;
+}
+
+.tiptap-editor .ProseMirror {
+  @apply p-4 min-h-[200px] focus:outline-none font-body text-body-md;
+}
+
+.tiptap-editor .ProseMirror p.is-editor-empty:first-child::before {
+  @apply text-on-surface-variant/40 float-left pointer-events-none h-0;
+  content: attr(data-placeholder);
+}
+
+.tiptap-editor .ProseMirror h1 { @apply text-headline-md font-headline font-bold mb-2; }
+.tiptap-editor .ProseMirror h2 { @apply text-headline-sm font-headline font-bold mb-2; }
+.tiptap-editor .ProseMirror h3 { @apply text-headline-sm font-headline font-bold mb-2; }
+.tiptap-editor .ProseMirror p { @apply mb-2; }
+.tiptap-editor .ProseMirror ul { @apply list-disc pl-6 mb-2; }
+.tiptap-editor .ProseMirror ol { @apply list-decimal pl-6 mb-2; }
+.tiptap-editor .ProseMirror blockquote { @apply border-l-4 border-outline-variant pl-4 italic text-on-surface-variant mb-2; }
+.tiptap-editor .ProseMirror img { @apply max-w-full rounded-lg my-2; }
+.tiptap-editor .ProseMirror mark { @apply bg-yellow-200 px-0.5 rounded; }
+.tiptap-editor .ProseMirror code { @apply bg-surface-container px-1.5 py-0.5 rounded text-sm font-mono; }
+.tiptap-editor .ProseMirror pre { @apply bg-gray-900 text-gray-100 p-4 rounded-lg font-mono text-sm mb-2; }
+.tiptap-editor .ProseMirror a { @apply text-primary underline; }
