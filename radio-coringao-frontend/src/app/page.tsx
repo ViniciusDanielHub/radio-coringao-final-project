@@ -83,13 +83,13 @@ export default async function Home() {
   // Position [3] a [11]: cards adicionais vindos do editorial (order 4-12)
   // Fallback para latestNews se não houver artigos editoriais suficientes
   const editorialMore = editorialNews.slice(3, 12);
-  const moreNews = editorialMore.length >= 4 ? editorialMore : latestNews.slice(0, 9);
+  const moreNews = (editorialMore.length >= 4 ? editorialMore : latestNews.slice(0, 9)).filter(Boolean);
 
   return (
     <div className="mx-auto w-full max-w-7xl px-margin-mobile py-stack-lg md:px-margin-desktop">
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_320px]">
         <section className="flex flex-col gap-5">
-          <EditorialGrid heroArticle={heroArticle} sideArticles={sideArticles} />
+          {heroArticle && <EditorialGrid heroArticle={heroArticle} sideArticles={sideArticles} />}
 
           {/* Cards adicionais antes de Últimas Notícias */}
           <div className="grid grid-cols-2 gap-[5px] sm:grid-cols-3">
