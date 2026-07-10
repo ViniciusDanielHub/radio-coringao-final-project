@@ -37,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         where: { status: 'PUBLISHED' },
         take: 20,
         orderBy: { publishedAt: 'desc' },
-        include: { category: true, author: true },
+        include: { category: true, author: { select: { id: true, name: true, email: true, role: true, avatar: true, bio: true, position: true } } },
       });
       return res.status(200).json(articles);
     }
@@ -47,7 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (slugMatch) {
       const article = await db.article.findFirst({
         where: { slug: slugMatch[1], status: 'PUBLISHED' },
-        include: { category: true, author: true },
+        include: { category: true, author: { select: { id: true, name: true, email: true, role: true, avatar: true, bio: true, position: true } } },
       });
       if (!article) return res.status(404).json({ error: 'Not found' });
       return res.status(200).json(article);
@@ -60,7 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         where: { status: 'PUBLISHED', publishedAt: { gte: weekAgo } },
         orderBy: { viewCount: 'desc' },
         take: 10,
-        include: { category: true, author: true },
+        include: { category: true, author: { select: { id: true, name: true, email: true, role: true, avatar: true, bio: true, position: true } } },
       });
       return res.status(200).json(articles);
     }
@@ -72,7 +72,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         where: { status: 'PUBLISHED', publishedAt: { gte: monthAgo } },
         orderBy: { viewCount: 'desc' },
         take: 10,
-        include: { category: true, author: true },
+        include: { category: true, author: { select: { id: true, name: true, email: true, role: true, avatar: true, bio: true, position: true } } },
       });
       return res.status(200).json(articles);
     }
@@ -83,7 +83,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         where: { status: 'PUBLISHED' },
         orderBy: { publishedAt: 'desc' },
         take: 20,
-        include: { category: true, author: true },
+        include: { category: true, author: { select: { id: true, name: true, email: true, role: true, avatar: true, bio: true, position: true } } },
       });
       return res.status(200).json(articles);
     }
@@ -95,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const articles = await db.article.findMany({
         where: { status: 'PUBLISHED', OR: [{ title: { contains: q, mode: 'insensitive' } }, { content: { contains: q, mode: 'insensitive' } }] },
         take: 20,
-        include: { category: true, author: true },
+        include: { category: true, author: { select: { id: true, name: true, email: true, role: true, avatar: true, bio: true, position: true } } },
       });
       return res.status(200).json(articles);
     }
