@@ -134,6 +134,8 @@ async function getApp() {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const fastify = await getApp();
+
+    console.log('Request:', req.method, req.url);
     const result = await fastify.inject({
       method: req.method as any,
       url: req.url || '/',
