@@ -31,8 +31,18 @@ function mapArticle(article: any) {
 }
 
 export default async function Home() {
-  const { editorialNews, latestNews, scheduledMatches } =
-    await container.getHomePageData.execute();
+  let editorialNews: any[] = [];
+  let latestNews: any[] = [];
+  let scheduledMatches: any[] = [];
+
+  try {
+    const data = await container.getHomePageData.execute();
+    editorialNews = data.editorialNews;
+    latestNews = data.latestNews;
+    scheduledMatches = data.scheduledMatches;
+  } catch (e) {
+    console.error("Failed to load home data:", e);
+  }
 
   // Fetch week and month highlights from API
   const [weekRes, monthRes] = await Promise.all([

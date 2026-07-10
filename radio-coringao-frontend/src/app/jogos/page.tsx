@@ -9,8 +9,16 @@ export const metadata: Metadata = {
 };
 
 export default async function JogosPage() {
-  const { nextMatch, recentResults } =
-    await container.getJogosPageData.execute();
+  let nextMatch: any = null;
+  let recentResults: any[] = [];
+
+  try {
+    const data = await container.getJogosPageData.execute();
+    nextMatch = data.nextMatch;
+    recentResults = data.recentResults;
+  } catch (e) {
+    console.error("Failed to load jogos data:", e);
+  }
 
   return (
     <div className="mx-auto w-full max-w-7xl px-margin-mobile py-stack-lg md:px-margin-desktop">

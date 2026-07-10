@@ -9,7 +9,12 @@ export const metadata: Metadata = {
 };
 
 export default async function ColunasPage() {
-  const columnists = await container.getColumnists.execute();
+  let columnists: any[] = [];
+  try {
+    columnists = await container.getColumnists.execute();
+  } catch (e) {
+    console.error("Failed to load columnists:", e);
+  }
 
   return (
     <div className="mx-auto w-full max-w-7xl px-margin-mobile py-stack-lg md:px-margin-desktop">
