@@ -40,11 +40,10 @@ async function getApp() {
         orderBy: { publishedAt: 'desc' },
         include: { category: true, author: true },
       });
-      console.log('Articles found:', articles.length);
-      return reply.send(articles || []);
+      return articles || [];
     } catch (err: any) {
       console.error('DB error:', err.message);
-      return reply.code(500).send({ error: err.message });
+      return { error: err.message };
     } finally {
       await prisma.$disconnect();
     }
