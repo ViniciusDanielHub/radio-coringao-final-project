@@ -148,7 +148,7 @@ function buildNavItems(data: Record<string, any>): NavItem[] {
 
     if (item.label === "Classificações") {
       children.forEach((child: SubItem) => {
-        const urlSlug = child.slug.split("/").pop() || "";
+        const urlSlug = child.slug?.split("/").pop() || "";
         if (data[urlSlug]) {
           child.standings = data[urlSlug];
         }
@@ -445,12 +445,12 @@ export function Header() {
                           {activeSubItem.articles!.length > 3 ? (
                             <div className="space-y-3">
                               <div className="grid grid-cols-3 gap-3">
-                                <Link href={`/noticias/${activeSubItem.articles![0].slug}`} onClick={closeMobileMenu} className="col-span-2 block rounded-xl overflow-hidden hover:shadow-md transition-shadow bg-surface-container-lowest">
-                                  {activeSubItem.articles![0].image && <img src={activeSubItem.articles![0].image} alt="" className="w-full h-36 object-cover" />}
+                                <Link href={`/noticias/${activeSubItem.articles?.[0]?.slug || ''}`} onClick={closeMobileMenu} className="col-span-2 block rounded-xl overflow-hidden hover:shadow-md transition-shadow bg-surface-container-lowest">
+                                  {activeSubItem.articles?.[0]?.image && <img src={activeSubItem.articles[0].image} alt="" className="w-full h-36 object-cover" />}
                                   <div className="p-3">
-                                    {activeSubItem.articles![0].categoryName && <span className="inline-block text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary mb-1">{activeSubItem.articles![0].categoryName}</span>}
-                                    <p className="text-sm font-bold text-on-surface line-clamp-2">{activeSubItem.articles![0].title}</p>
-                                    {activeSubItem.articles![0].excerpt && <p className="text-[11px] text-on-surface-variant line-clamp-2 mt-1">{activeSubItem.articles![0].excerpt}</p>}
+                                    {activeSubItem.articles?.[0]?.categoryName && <span className="inline-block text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary mb-1">{activeSubItem.articles[0].categoryName}</span>}
+                                    <p className="text-sm font-bold text-on-surface line-clamp-2">{activeSubItem.articles?.[0]?.title}</p>
+                                    {activeSubItem.articles?.[0]?.excerpt && <p className="text-[11px] text-on-surface-variant line-clamp-2 mt-1">{activeSubItem.articles[0].excerpt}</p>}
                                   </div>
                                 </Link>
                                 <div className="space-y-3">
@@ -476,11 +476,11 @@ export function Header() {
                             </div>
                           ) : (
                             <div className="grid grid-cols-3 gap-3">
-                              <Link href={`/noticias/${activeSubItem.articles![0].slug}`} onClick={closeMobileMenu} className="col-span-2 block rounded-xl overflow-hidden hover:shadow-md transition-shadow bg-surface-container-lowest">
-                                {activeSubItem.articles![0].image && <img src={activeSubItem.articles![0].image} alt="" className="w-full h-36 object-cover" />}
+                              <Link href={`/noticias/${activeSubItem.articles?.[0]?.slug || ''}`} onClick={closeMobileMenu} className="col-span-2 block rounded-xl overflow-hidden hover:shadow-md transition-shadow bg-surface-container-lowest">
+                                {activeSubItem.articles?.[0]?.image && <img src={activeSubItem.articles[0].image} alt="" className="w-full h-36 object-cover" />}
                                 <div className="p-3">
-                                  <p className="text-sm font-bold text-on-surface line-clamp-2">{activeSubItem.articles![0].title}</p>
-                                  {activeSubItem.articles![0].excerpt && <p className="text-[11px] text-on-surface-variant line-clamp-2 mt-1">{activeSubItem.articles![0].excerpt}</p>}
+                                  <p className="text-sm font-bold text-on-surface line-clamp-2">{activeSubItem.articles?.[0]?.title}</p>
+                                  {activeSubItem.articles?.[0]?.excerpt && <p className="text-[11px] text-on-surface-variant line-clamp-2 mt-1">{activeSubItem.articles[0].excerpt}</p>}
                                 </div>
                               </Link>
                               <div className="space-y-3">
