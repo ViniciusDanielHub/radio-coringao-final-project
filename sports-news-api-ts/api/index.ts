@@ -44,6 +44,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(article);
     }
 
+    // Destaques da semana
+    if (url === '/api/noticias/highlights/week' || url.startsWith('/api/noticias/highlights/week?')) {
+      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const articles = await db.article.findMany({
+        where: { status: 'PUBLISHED', publishedAt: { gte: weekAgo } },
+        orderBy: { viewCount: 'desc' },
+        take: 10,
+        include: { category: true, author: true },
+      });
+      return res.status(200).json(articles);
+    }
+
+    // Destaques do mês
+    if (url === '/api/noticias/highlights/month' || url.startsWith('/api/noticias/highlights/month?')) {
+      const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const articles = await db.article.findMany({
+        where: { status: 'PUBLISHED', publishedAt: { gte: monthAgo } },
+        orderBy: { viewCount: 'desc' },
+        take: 10,
+        include: { category: true, author: true },
+      });
+      return res.status(200).json(articles);
+    }
+
+    // Últimas notícias
+    if (url === '/api/noticias/latest' || url.startsWith('/api/noticias/latest?')) {
+      const articles = await db.article.findMany({
+        where: { status: 'PUBLISHED' },
+        orderBy: { publishedAt: 'desc' },
+        take: 20,
+        include: { category: true, author: true },
+      });
+      return res.status(200).json(articles);
+    }
+
+    // Busca
+    if (url.startsWith('/api/noticias/search')) {
+      const urlObj = new URL(url, 'http://localhost');
+      const q = urlObj.searchParams.get('q') || '';
+      const articles = await db.article.findMany({
+        where: { status: 'PUBLISHED', OR: [{ title: { contains: q, mode: 'insensitive' } }, { content: { contains: q, mode: 'insensitive' } }] },
+        take: 20,
+        include: { category: true, author: true },
+      });
+      return res.status(200).json(articles);
+    }
+
     // Categorias
     if (url === '/api/categorias' || url.startsWith('/api/categorias?')) {
       const categories = await db.category.findMany({ where: { isActive: true }, orderBy: { order: 'asc' } });
