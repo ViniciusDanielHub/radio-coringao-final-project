@@ -21,11 +21,13 @@ async function getApp() {
   await app.register(rateLimit, { global: true, max: 100, timeWindow: '15 minutes' });
 
   // Health
-  app.get('/api/health', async () => ({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV,
-  }));
+  app.get('/api/health', async () => {
+    const { PrismaClient } = await import('@prisma/client');
+    const prisma = new PrismaClient();
+    const count = await prisma.article.count();
+    await prisma.$disconnect();
+    return { status: 'ok', timestamp: new Date().toISOString(), articleCount: count };
+  });
 
   // Notícias públicas
   app.get('/api/noticias', async (req, reply) => {
